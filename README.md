@@ -49,12 +49,18 @@ can't be tapped. Samsung's own lock screen player keeps working on top of it.
 Music apps usually share only a small cover (often 300-500 px), which looks soft on a
 1080 px wide screen. The app tries, in order:
 
-1. An HD cover (1200 px) from Apple's public iTunes catalogue, used only when title and
-   artist match exactly. Only the song title and artist are sent. You can turn this off in the app.
-2. If there's no match: a full-size version of the music app's own cover link, when it provides one.
-3. Otherwise, whatever cover the music app gave.
+1. An HD cover (1200 px) from Apple's public iTunes catalogue.
+2. An HD cover from Deezer's public catalogue.
+3. A full-size version of the music app's own cover link, when it provides one.
+4. Whatever cover the music app shared.
 
-The "Last activity" line in the app shows the resolution and source of the current cover.
+Steps 1 and 2 are used only when the title and artist match exactly, so you never get the wrong
+cover. Only the song title and artist are sent. You can turn both off in the app.
+
+**Checking what happened:** the app's *Last cover search* section shows every step for the
+latest song: what the music app shared, how many results each catalogue returned, the closest
+results when nothing matched, and any network errors. *Search again for the current song*
+re-runs the search.
 
 ## Good to know
 

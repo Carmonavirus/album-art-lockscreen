@@ -39,6 +39,7 @@ class MainActivity : Activity() {
     private lateinit var defaultStatus: TextView
     private lateinit var preview: ImageView
     private lateinit var enabledSwitch: Switch
+    private lateinit var lookupLog: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -151,8 +152,25 @@ class MainActivity : Activity() {
         root.addView(header("Cover quality"))
         toggle("Find HD covers online", { prefs.hdLookup }, { prefs.hdLookup = it }, root)
         root.addView(text("Music apps often share only a small cover, which looks blurry full screen. " +
-            "With this on, the app looks the song up in Apple's iTunes catalogue (song title and artist " +
+            "With this on, the app looks the song up in the iTunes and Deezer catalogues (song title and artist " +
             "only) and uses its high-resolution cover first. If there is no exact match, it uses the music app's own cover.", 13f))
+
+        root.addView(subheader("Last cover search"))
+        lookupLog = text("", 12f).apply { setTypeface(Typeface.MONOSPACE) ; setTextIsSelectable(true) }
+        root.addView(lookupLog)
+        root.addView(Button(this).apply {
+            text = "Search again for the current song"
+            setOnClickListener {
+                val l = MediaArtListener.instance
+                if (l == null) {
+                    Toast.makeText(this@MainActivity, "Notification access is off", Toast.LENGTH_SHORT).show()
+                } else {
+                    l.refresh(forceRedraw = true)
+                    lookupLog.text = "Searching…"
+                    lookupLog.postDelayed({ updateUi() }, 6000)
+                }
+            }
+        })
 
         root.addView(header("Timing"))
         val delayLabel = text("Go back to normal ${prefs.restoreDelaySeconds} s after the music stops", 15f, top = 12)
@@ -305,6 +323,7 @@ class MainActivity : Activity() {
         }
         defaultStatus.text = if (prefs.defaultWallpaperFile.exists()) "✓ Image saved" else "No image picked"
         lastStatus.text = prefs.lastStatus
+        lookupLog.text = prefs.lookupLog
         // The tile may have changed this while the app was in the background.
         if (enabledSwitch.isChecked != prefs.enabled) enabledSwitch.isChecked = prefs.enabled
     }

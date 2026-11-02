@@ -120,6 +120,11 @@ class Prefs(context: Context) {
         get() = sp.getString("last_status", "Nothing has happened yet.") ?: ""
         set(v) = sp.edit().putString("last_status", v).apply()
 
+    /** Step-by-step log of the last cover search, shown in the app. */
+    var lookupLog: String
+        get() = sp.getString("lookup_log", "No song looked up yet.") ?: ""
+        set(v) = sp.edit().putString("lookup_log", v).apply()
+
     /** Last song shown, so the settings preview can use the real cover. */
     var lastTitle: String
         get() = sp.getString("last_title", "Song title") ?: ""
