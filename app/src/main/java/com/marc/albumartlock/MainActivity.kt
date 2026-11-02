@@ -153,7 +153,7 @@ class MainActivity : Activity() {
         toggle("Find HD covers online", { prefs.hdLookup }, { prefs.hdLookup = it }, root)
         root.addView(text("Music apps often share only a small cover, which looks blurry full screen. " +
             "With this on, the app looks the song up in the iTunes and Deezer catalogues (song title and artist " +
-            "only) and uses its high-resolution cover first. If there is no exact match, it uses the music app's own cover.", 13f))
+            "only) and uses its high-resolution cover first. A search with a single result uses it; with several, one has to match exactly. Otherwise it uses the music app's own cover.", 13f))
 
         root.addView(subheader("Last cover search"))
         lookupLog = text("", 12f).apply { setTypeface(Typeface.MONOSPACE) ; setTextIsSelectable(true) }
