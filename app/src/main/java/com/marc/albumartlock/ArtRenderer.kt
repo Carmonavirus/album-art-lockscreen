@@ -147,7 +147,10 @@ object ArtRenderer {
         canvas.drawRoundRect(dst, radius, radius, shadow)
         val save = canvas.save()
         canvas.clipPath(Path().apply { addRoundRect(dst, radius, radius, Path.Direction.CW) })
-        canvas.drawBitmap(art, null, dst, Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
+        // Crop non-square covers (e.g. video thumbnails) to a square instead of stretching them.
+        val side = min(art.width, art.height)
+        val src = Rect((art.width - side) / 2, (art.height - side) / 2, (art.width + side) / 2, (art.height + side) / 2)
+        canvas.drawBitmap(art, src, dst, Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
         canvas.restoreToCount(save)
     }
 

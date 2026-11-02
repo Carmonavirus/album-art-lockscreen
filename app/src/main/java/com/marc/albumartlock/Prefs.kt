@@ -84,6 +84,11 @@ class Prefs(context: Context) {
 
     // ---- Behaviour ----
 
+    /** Look up an HD cover online (iTunes catalogue) when the music app only provides a small one. */
+    var hdLookup: Boolean
+        get() = sp.getBoolean("hd_lookup", true)
+        set(v) = sp.edit().putBoolean("hd_lookup", v).apply()
+
     /** Seconds without playback before the normal lock screen comes back. */
     var restoreDelaySeconds: Int
         get() = sp.getInt("restore_delay", 30)

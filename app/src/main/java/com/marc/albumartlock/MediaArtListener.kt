@@ -162,7 +162,7 @@ class MediaArtListener : NotificationListenerService() {
         inFlightKey = key
         redrawNext = false
         worker.execute {
-            val art = bitmap ?: uri?.let { loadUri(it) }
+            val (art, source) = bestCover(bitmap, uri, title, artist, album)
             if (art == null) {
                 main.post { if (inFlightKey == key) inFlightKey = null }
                 status("Couldn't get the cover for \"$title\".")
@@ -174,7 +174,7 @@ class MediaArtListener : NotificationListenerService() {
                 if (inFlightKey == key) inFlightKey = null
                 if (ok) prefs.currentTrackKey = key
             }
-            if (ok) status("Showing the cover of \"$title\".")
+            if (ok) status("Showing the cover of \"$title\" (${art.width}×${art.height}, $source).")
         }
     }
 
@@ -184,6 +184,73 @@ class MediaArtListener : NotificationListenerService() {
         md.getString(MediaMetadata.METADATA_KEY_ARTIST),
         md.getString(MediaMetadata.METADATA_KEY_ALBUM),
     ).joinToString("|")
+
+    /**
+     * Music apps usually hand over a small cover (often 300-500 px), which looks soft on a
+     * 1080 px wide screen. Try, in order: a full-size version of the app's own cover URL, an HD
+     * copy from the iTunes catalogue (if allowed), then whatever the app gave us. Returns the
+     * biggest one found, with a short description of where it came from.
+     */
+    private fun bestCover(bitmap: Bitmap?, uri: String?, title: String, artist: String, album: String): Pair<Bitmap?, String> {
+        val candidates = mutableListOf<Pair<Bitmap, String>>()
+        bitmap?.let { candidates += it to "from the music app" }
+        if (!uri.isNullOrBlank()) {
+            val big = upscaleUrl(uri)
+            val loaded = (if (big != uri) loadUri(big) else null)?.let { it to "full size from the music app" }
+                ?: loadUri(uri)?.let { it to "from the music app" }
+            loaded?.let { candidates += it }
+        }
+        val bestSoFar = candidates.maxOfOrNull { minOf(it.first.width, it.first.height) } ?: 0
+        if (bestSoFar < HD_SIZE && prefs.hdLookup) {
+            itunesCover(title, artist, album)?.let { candidates += it to "HD from iTunes" }
+        }
+        val best = candidates.maxByOrNull { minOf(it.first.width, it.first.height) }
+        return (best?.first) to (best?.second ?: "")
+    }
+
+    /** Rewrites known cover URLs (Google/YouTube image servers) to ask for a large size. */
+    private fun upscaleUrl(url: String): String {
+        if (!url.startsWith("http")) return url
+        var u = url
+        if ("googleusercontent.com" in u || "ggpht.com" in u) {
+            u = u.replace(Regex("=w\\d+-h\\d+"), "=w$HD_SIZE-h$HD_SIZE")
+                .replace(Regex("=s\\d+"), "=s$HD_SIZE")
+        }
+        if ("ytimg.com" in u) {
+            u = u.replace(Regex("/(default|mqdefault|hqdefault|sddefault)\\.jpg"), "/maxresdefault.jpg")
+        }
+        return u
+    }
+
+    /** Looks the song up in Apple's public iTunes Search API, which serves covers up to 3000 px. */
+    private fun itunesCover(title: String, artist: String, album: String): Bitmap? = runCatching {
+        if (title.isBlank()) return null
+        fun clean(t: String) = t.replace(Regex("\\s*[(\\[].*?[)\\]]"), "").trim() // drop "(feat. …)", "[Remix]"
+        val cleanTitle = clean(title)
+        val mainArtist = artist.split(",", "&", " x ", " feat", " ft.").first().trim()
+        val term = java.net.URLEncoder.encode("$mainArtist $cleanTitle", "UTF-8")
+        val conn = URL("https://itunes.apple.com/search?term=$term&entity=song&limit=10").openConnection() as HttpURLConnection
+        conn.connectTimeout = 8000
+        conn.readTimeout = 8000
+        val json = conn.inputStream.use { it.bufferedReader().readText() }
+        val results = org.json.JSONObject(json).getJSONArray("results")
+        fun norm(s: String) = s.lowercase().replace(Regex("[^\\p{L}\\p{N}]"), "")
+        val wantArtist = norm(mainArtist)
+        val wantTitle = norm(cleanTitle)
+        val wantAlbum = norm(album)
+        var pick: org.json.JSONObject? = null
+        for (i in 0 until results.length()) {
+            val r = results.getJSONObject(i)
+            val a = norm(r.optString("artistName"))
+            val t = norm(clean(r.optString("trackName")))
+            // Only accept a confident match, so we never show the wrong cover.
+            if (wantArtist.isEmpty() || !(a.contains(wantArtist) || wantArtist.contains(a))) continue
+            if (t != wantTitle) continue
+            if (pick == null || (wantAlbum.isNotEmpty() && norm(r.optString("collectionName")) == wantAlbum)) pick = r
+        }
+        val art = pick?.optString("artworkUrl100")?.takeIf { it.isNotEmpty() } ?: return null
+        loadUri(art.replace(Regex("\\d+x\\d+bb"), "${HD_SIZE}x${HD_SIZE}bb"))
+    }.getOrNull()
 
     private fun loadUri(uri: String): Bitmap? = runCatching {
         if (uri.startsWith("http")) {
@@ -257,6 +324,7 @@ class MediaArtListener : NotificationListenerService() {
 
     companion object {
         private const val TAG = "AlbumArtLock"
+        private const val HD_SIZE = 1200
         @Volatile var instance: MediaArtListener? = null
     }
 }

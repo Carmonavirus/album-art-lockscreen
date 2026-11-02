@@ -139,6 +139,12 @@ class MainActivity : Activity() {
         root.addView(text("Music controls: the wallpaper is a still image, so buttons drawn on it couldn't be " +
             "tapped. Samsung's own player at the bottom of the lock screen keeps working as usual.", 13f, top = 8))
 
+        root.addView(header("Cover quality"))
+        toggle("Find HD covers online", { prefs.hdLookup }, { prefs.hdLookup = it }, root)
+        root.addView(text("Music apps often share only a small cover, which looks blurry full screen. " +
+            "With this on, the app looks the song up in Apple's iTunes catalogue (song title and artist " +
+            "only) and uses its high-resolution cover when it finds an exact match.", 13f))
+
         root.addView(header("Timing"))
         val delayLabel = text("Go back to normal ${prefs.restoreDelaySeconds} s after the music stops", 15f, top = 12)
         root.addView(delayLabel)
