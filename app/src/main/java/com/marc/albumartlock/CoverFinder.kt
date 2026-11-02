@@ -92,7 +92,11 @@ class CoverFinder(private val context: Context, private val hdLookup: Boolean) {
             if (!matches(song, r.optString("artistName"), r.optString("trackName"))) continue
             if (pick == null || sameAlbum(song, r.optString("collectionName"))) pick = r
         }
-        if (pick == null) { logNoMatch(results, "artistName", "trackName"); return null }
+        if (pick == null) {
+            logNoMatch(song, (0 until results.length()).map { results.getJSONObject(it) }
+                .map { it.optString("artistName") to it.optString("trackName") })
+            return null
+        }
         log += "  match: \"${pick.optString("trackName")}\" by ${pick.optString("artistName")}"
         val art = pick.optString("artworkUrl100").takeIf { it.isNotEmpty() } ?: return null
         return download(art.replace(Regex("\\d+x\\d+bb"), "${HD}x${HD}bb"))
@@ -114,7 +118,8 @@ class CoverFinder(private val context: Context, private val hdLookup: Boolean) {
             if (pick == null || sameAlbum(song, album)) pick = r
         }
         if (pick == null) {
-            log += "  no exact match"
+            logNoMatch(song, (0 until results.length()).map { results.getJSONObject(it) }
+                .map { (it.optJSONObject("artist")?.optString("name") ?: "") to it.optString("title") })
             return null
         }
         log += "  match: \"${pick.optString("title")}\""
@@ -131,8 +136,12 @@ class CoverFinder(private val context: Context, private val hdLookup: Boolean) {
 
     private fun norm(s: String) = s.lowercase().replace(Regex("[^\\p{L}\\p{N}]"), "")
 
-    private fun mainArtist(a: String) =
-        a.split(",", "&", " x ", " X ", " feat", " Feat", " ft.", " with ").first().trim()
+    /** "SoFaygo & slayr" -> [SoFaygo, slayr]. Catalogues often list a different one as the main artist. */
+    private fun artists(a: String) =
+        a.split(",", "&", " x ", " X ", " and ", " feat.", " feat ", " Feat.", " ft.", " with ", " vs. ")
+            .map { it.trim() }.filter { it.isNotEmpty() }
+
+    private fun mainArtist(a: String) = artists(a).firstOrNull() ?: a.trim()
 
     private fun query(song: Song): String? {
         if (song.title.isBlank()) { log += "  no title to search for"; return null }
@@ -140,21 +149,29 @@ class CoverFinder(private val context: Context, private val hdLookup: Boolean) {
     }
 
     /** Only accept a confident match, so we never show the wrong cover. */
-    private fun matches(song: Song, artist: String, title: String): Boolean {
-        val wantArtist = norm(mainArtist(song.artist))
+    private fun matches(song: Song, artist: String, title: String): Boolean = mismatch(song, artist, title) == null
+
+    /** Why a result isn't a match, or null when it is. Any of the song's artists may be the catalogue's main artist. */
+    private fun mismatch(song: Song, artist: String, title: String): String? {
+        val wanted = artists(song.artist).map { norm(it) }.filter { it.isNotEmpty() }
         val a = norm(artist)
-        val artistOk = wantArtist.isEmpty() || a.contains(wantArtist) || (a.isNotEmpty() && wantArtist.contains(a))
-        return artistOk && norm(clean(title)) == norm(clean(song.title))
+        val artistOk = wanted.isEmpty() || wanted.any { w -> a.contains(w) || (a.isNotEmpty() && w.contains(a)) }
+        val titleOk = norm(clean(title)) == norm(clean(song.title))
+        return when {
+            !artistOk && !titleOk -> "artist and title differ"
+            !artistOk -> "artist differs"
+            !titleOk -> "title differs"
+            else -> null
+        }
     }
 
     private fun sameAlbum(song: Song, album: String) =
         song.album.isNotBlank() && norm(clean(album)) == norm(clean(song.album))
 
-    private fun logNoMatch(results: org.json.JSONArray, artistKey: String, titleKey: String) {
+    private fun logNoMatch(song: Song, results: List<Pair<String, String>>) {
         log += "  no exact match"
-        for (i in 0 until minOf(3, results.length())) {
-            val r = results.getJSONObject(i)
-            log += "    e.g. \"${r.optString(titleKey)}\" by ${r.optString(artistKey)}"
+        for ((artist, title) in results.take(3)) {
+            log += "    \"$title\" by $artist: ${mismatch(song, artist, title)}"
         }
     }
 
