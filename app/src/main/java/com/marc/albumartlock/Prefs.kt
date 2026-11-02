@@ -53,6 +53,20 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("show_album", false)
         set(v) = sp.edit().putBoolean("show_album", v).apply()
 
+    /** Where the text goes: TEXT_BELOW, TEXT_ABOVE or TEXT_ON_COVER. */
+    var textPosition: Int
+        get() = sp.getInt("text_position", TEXT_BELOW)
+        set(v) = sp.edit().putInt("text_position", v).apply()
+
+    /** Space between cover and text, in tenths of a percent of the screen height (30 = 3%). */
+    var textGapTenths: Int
+        get() = sp.getInt("text_gap", 30)
+        set(v) = sp.edit().putInt("text_gap", v).apply()
+
+    var textAlign: Int
+        get() = sp.getInt("text_align", ALIGN_CENTER)
+        set(v) = sp.edit().putInt("text_align", v).apply()
+
     /** Text size, in percent of the default. */
     var textScalePercent: Int
         get() = sp.getInt("text_scale", 100)
@@ -66,7 +80,7 @@ class Prefs(context: Context) {
     fun resetLook() {
         sp.edit().remove("layout").remove("background").remove("cover_top").remove("cover_size")
             .remove("corner").remove("show_title").remove("show_artist").remove("show_album")
-            .remove("text_scale").remove("dim_v2").apply()
+            .remove("text_scale").remove("text_position").remove("text_gap").remove("text_align").remove("dim_v2").apply()
     }
 
     fun look(title: String, artist: String, album: String) = ArtRenderer.Look(
@@ -80,6 +94,9 @@ class Prefs(context: Context) {
         album = if (showAlbum) album else "",
         textScale = textScalePercent / 100f,
         dimPercent = dimPercent,
+        textPosition = textPosition,
+        textGap = textGapTenths / 1000f,
+        textAlign = textAlign,
     )
 
     // ---- Behaviour ----
@@ -124,5 +141,10 @@ class Prefs(context: Context) {
         const val BG_TINT = 0
         const val BG_BLUR = 1
         const val BG_BLACK = 2
+        const val TEXT_BELOW = 0
+        const val TEXT_ABOVE = 1
+        const val TEXT_ON_COVER = 2
+        const val ALIGN_CENTER = 0
+        const val ALIGN_LEFT = 1
     }
 }

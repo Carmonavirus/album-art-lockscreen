@@ -34,7 +34,8 @@ The app has a customization screen with a live preview (using the last song that
 - **Background**: the cover's colour on a dark gradient (like Samsung's expanded player),
   a blurred copy of the cover, or black.
 - **Cover**: position from the top, size and corner roundness.
-- **Text under the cover**: song title, artist and album, each on or off, plus text size.
+- **Text**: song title, artist and album, each on or off; text size; position (below the
+  cover, above it, or on the cover itself); space between cover and text; centred or left aligned.
 - **Darken**: dims the background so the clock stays readable.
 - **Reset to Samsung look** puts everything back to the defaults, which match the expanded
   lock screen player on a Galaxy S23.

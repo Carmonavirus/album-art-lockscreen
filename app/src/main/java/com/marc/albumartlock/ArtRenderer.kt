@@ -32,6 +32,9 @@ object ArtRenderer {
         val album: String,
         val textScale: Float,
         val dimPercent: Int,
+        val textPosition: Int = Prefs.TEXT_BELOW,
+        val textGap: Float = 0.03f,
+        val textAlign: Int = Prefs.ALIGN_CENTER,
     )
 
     fun render(art: Bitmap, width: Int, height: Int, look: Look): Bitmap {
@@ -65,19 +68,47 @@ object ArtRenderer {
             look.artist to Line(0.030f, false, 225),
             look.album to Line(0.027f, false, 170),
         ).filter { it.first.isNotBlank() }
-        var y = dst.bottom + h * 0.030f
+        if (lines.isEmpty()) return
+
+        // Positions below are the vertical centres of each text line.
+        val step = h * 0.036f * look.textScale
+        val gap = h * look.textGap.coerceIn(0f, 0.3f)
+        val blockSpan = step * (lines.size - 1)
+        val onCover = look.textPosition == Prefs.TEXT_ON_COVER
+        val firstCentre = when (look.textPosition) {
+            Prefs.TEXT_ABOVE -> dst.top - gap - blockSpan
+            Prefs.TEXT_ON_COVER -> dst.bottom - max(gap, h * 0.025f) - blockSpan
+            else -> dst.bottom + gap
+        }
+
+        if (onCover) {
+            // Darken the bottom of the cover so white text stays readable on bright art.
+            val shadeTop = firstCentre - h * 0.05f
+            val save = canvas.save()
+            val radius = w * look.corner.coerceIn(0f, 0.25f)
+            canvas.clipPath(Path().apply { addRoundRect(dst, radius, radius, Path.Direction.CW) })
+            canvas.drawRect(dst.left, shadeTop, dst.right, dst.bottom, Paint().apply {
+                shader = LinearGradient(0f, shadeTop, 0f, dst.bottom,
+                    Color.TRANSPARENT, Color.argb(170, 0, 0, 0), Shader.TileMode.CLAMP)
+            })
+            canvas.restoreToCount(save)
+        }
+
+        val leftAligned = look.textAlign == Prefs.ALIGN_LEFT
+        val inset = if (onCover || leftAligned) w * 0.045f else 0f
+        val x = if (leftAligned) dst.left + inset else w / 2f
+        val maxWidth = size - 2 * inset
         for ((i, pair) in lines.withIndex()) {
             val (text, style) = pair
             val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.argb(style.alpha, 255, 255, 255)
                 textSize = w * style.size * look.textScale
                 if (style.bold) typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-                textAlign = Paint.Align.CENTER
+                textAlign = if (leftAligned) Paint.Align.LEFT else Paint.Align.CENTER
                 setShadowLayer(6f, 0f, 2f, Color.argb(90, 0, 0, 0))
             }
-            if (i > 0) y += h * 0.036f * look.textScale
-            val shown = TextUtils.ellipsize(text, paint, size, TextUtils.TruncateAt.END).toString()
-            canvas.drawText(shown, w / 2f, y + paint.textSize * 0.35f, paint)
+            val shown = TextUtils.ellipsize(text, paint, maxWidth, TextUtils.TruncateAt.END).toString()
+            canvas.drawText(shown, x, firstCentre + i * step + paint.textSize * 0.35f, paint)
         }
     }
 
