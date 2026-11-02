@@ -128,6 +128,15 @@ class MainActivity : Activity() {
         toggle("Artist", { prefs.showArtist }, { prefs.showArtist = it }, root)
         toggle("Album", { prefs.showAlbum }, { prefs.showAlbum = it }, root)
         slider("Text size", 60, 160, "%", { prefs.textScalePercent }, { prefs.textScalePercent = it }, root)
+        root.addView(text("Text position", 15f, top = 8))
+        root.addView(choice(listOf("Below the cover", "Above the cover", "On the cover (bottom)"), prefs.textPosition) {
+            prefs.textPosition = it; lookChanged()
+        })
+        slider("Space between cover and text", 0, 200, "", { prefs.textGapTenths }, { prefs.textGapTenths = it }, root)
+        root.addView(text("Text alignment", 15f, top = 8))
+        root.addView(choice(listOf("Centred", "Left"), prefs.textAlign) {
+            prefs.textAlign = it; lookChanged()
+        })
 
         root.addView(subheader("Background brightness"))
         slider("Darken", 0, 80, "%", { prefs.dimPercent }, { prefs.dimPercent = it }, root)
@@ -232,11 +241,13 @@ class MainActivity : Activity() {
 
     private fun choice(options: List<String>, selected: Int, onPick: (Int) -> Unit): RadioGroup {
         val group = RadioGroup(this)
+        // Unique ids, so several groups on one screen don't clash.
+        val ids = options.map { android.view.View.generateViewId() }
         options.forEachIndexed { i, label ->
-            group.addView(RadioButton(this).apply { id = 2000 + i; text = label })
+            group.addView(RadioButton(this).apply { id = ids[i]; text = label })
         }
-        group.check(2000 + selected)
-        group.setOnCheckedChangeListener { _, id -> onPick(id - 2000) }
+        group.check(ids[selected.coerceIn(0, ids.size - 1)])
+        group.setOnCheckedChangeListener { _, id -> ids.indexOf(id).takeIf { it >= 0 }?.let(onPick) }
         return group
     }
 
