@@ -14,15 +14,75 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("enabled", true)
         set(v) = sp.edit().putBoolean("enabled", v).apply()
 
-    /** STYLE_FIT_BLUR: sharp cover centred over a blurred copy. STYLE_FILL: cover cropped to fill. */
-    var style: Int
-        get() = sp.getInt("style", STYLE_FIT_BLUR)
-        set(v) = sp.edit().putInt("style", v).apply()
+    // ---- Look. Defaults match Samsung's expanded lock screen player on a Galaxy S23. ----
 
-    /** 0..80, percent of black laid over the image so the clock stays readable. */
+    /** LAYOUT_CARD: rounded cover you can move and resize. LAYOUT_FILL: cover cropped to fill the screen. */
+    var layout: Int
+        get() = sp.getInt("layout", LAYOUT_CARD)
+        set(v) = sp.edit().putInt("layout", v).apply()
+
+    /** Background behind the card: BG_TINT, BG_BLUR or BG_BLACK. */
+    var background: Int
+        get() = sp.getInt("background", BG_TINT)
+        set(v) = sp.edit().putInt("background", v).apply()
+
+    /** Top edge of the cover, in percent of the screen height. */
+    var coverTopPercent: Int
+        get() = sp.getInt("cover_top", 29)
+        set(v) = sp.edit().putInt("cover_top", v).apply()
+
+    /** Cover width, in percent of the screen width. */
+    var coverSizePercent: Int
+        get() = sp.getInt("cover_size", 89)
+        set(v) = sp.edit().putInt("cover_size", v).apply()
+
+    /** Corner radius, in percent of the screen width (0 = square corners). */
+    var cornerPercent: Int
+        get() = sp.getInt("corner", 7)
+        set(v) = sp.edit().putInt("corner", v).apply()
+
+    var showTitle: Boolean
+        get() = sp.getBoolean("show_title", true)
+        set(v) = sp.edit().putBoolean("show_title", v).apply()
+
+    var showArtist: Boolean
+        get() = sp.getBoolean("show_artist", true)
+        set(v) = sp.edit().putBoolean("show_artist", v).apply()
+
+    var showAlbum: Boolean
+        get() = sp.getBoolean("show_album", false)
+        set(v) = sp.edit().putBoolean("show_album", v).apply()
+
+    /** Text size, in percent of the default. */
+    var textScalePercent: Int
+        get() = sp.getInt("text_scale", 100)
+        set(v) = sp.edit().putInt("text_scale", v).apply()
+
+    /** 0..80, percent of black laid over the background so the clock stays readable. */
     var dimPercent: Int
-        get() = sp.getInt("dim", 25)
-        set(v) = sp.edit().putInt("dim", v).apply()
+        get() = sp.getInt("dim_v2", 0)
+        set(v) = sp.edit().putInt("dim_v2", v).apply()
+
+    fun resetLook() {
+        sp.edit().remove("layout").remove("background").remove("cover_top").remove("cover_size")
+            .remove("corner").remove("show_title").remove("show_artist").remove("show_album")
+            .remove("text_scale").remove("dim_v2").apply()
+    }
+
+    fun look(title: String, artist: String, album: String) = ArtRenderer.Look(
+        layout = layout,
+        background = background,
+        coverTop = coverTopPercent / 100f,
+        coverSize = coverSizePercent / 100f,
+        corner = cornerPercent / 100f,
+        title = if (showTitle) title else "",
+        artist = if (showArtist) artist else "",
+        album = if (showAlbum) album else "",
+        textScale = textScalePercent / 100f,
+        dimPercent = dimPercent,
+    )
+
+    // ---- Behaviour ----
 
     /** Seconds without playback before the normal lock screen comes back. */
     var restoreDelaySeconds: Int
@@ -38,11 +98,26 @@ class Prefs(context: Context) {
         get() = sp.getString("last_status", "Nothing has happened yet.") ?: ""
         set(v) = sp.edit().putString("last_status", v).apply()
 
+    /** Last song shown, so the settings preview can use the real cover. */
+    var lastTitle: String
+        get() = sp.getString("last_title", "Song title") ?: ""
+        set(v) = sp.edit().putString("last_title", v).apply()
+    var lastArtist: String
+        get() = sp.getString("last_artist", "Artist") ?: ""
+        set(v) = sp.edit().putString("last_artist", v).apply()
+    var lastAlbum: String
+        get() = sp.getString("last_album", "Album") ?: ""
+        set(v) = sp.edit().putString("last_album", v).apply()
+    val lastCoverFile: File get() = File(filesDir, "last_cover.png")
+
     /** The image the user picked as their normal lock screen. */
     val defaultWallpaperFile: File get() = File(filesDir, "default_lock_wallpaper")
 
     companion object {
-        const val STYLE_FIT_BLUR = 0
-        const val STYLE_FILL = 1
+        const val LAYOUT_CARD = 0
+        const val LAYOUT_FILL = 1
+        const val BG_TINT = 0
+        const val BG_BLUR = 1
+        const val BG_BLACK = 2
     }
 }

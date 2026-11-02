@@ -3,6 +3,13 @@ package com.marc.albumartlock
 import android.app.Activity
 import android.content.ComponentName
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.LinearGradient
+import android.graphics.Paint
+import android.graphics.Shader
 import android.graphics.Typeface
 import android.os.Bundle
 import android.provider.Settings
@@ -12,6 +19,7 @@ import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.Button
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
@@ -29,6 +37,7 @@ class MainActivity : Activity() {
     private lateinit var accessButton: Button
     private lateinit var lastStatus: TextView
     private lateinit var defaultStatus: TextView
+    private lateinit var preview: ImageView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,33 +76,53 @@ class MainActivity : Activity() {
         })
 
         // 3. Look
-        root.addView(header("3. Look"))
-        val styles = RadioGroup(this)
-        val fit = RadioButton(this).apply { id = 1001; text = "Cover in the middle, blurred cover behind it" }
-        val fill = RadioButton(this).apply { id = 1002; text = "Cover fills the whole screen (cropped)" }
-        styles.addView(fit); styles.addView(fill)
-        styles.check(if (prefs.style == Prefs.STYLE_FILL) 1002 else 1001)
-        styles.setOnCheckedChangeListener { _, id ->
-            prefs.style = if (id == 1002) Prefs.STYLE_FILL else Prefs.STYLE_FIT_BLUR
-            MediaArtListener.instance?.refresh(forceRedraw = true)
+        root.addView(header("3. Customize the look"))
+        root.addView(text("Changes show up in the preview right away, and on your lock screen " +
+            "the next time it updates (immediately if a song is playing).", 14f))
+        preview = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            adjustViewBounds = true
+            layoutParams = LinearLayout.LayoutParams(dp(200), WRAP_CONTENT).apply {
+                gravity = Gravity.CENTER_HORIZONTAL; topMargin = dp(12); bottomMargin = dp(8)
+            }
+            outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
+            background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = dp(18).toFloat(); setColor(Color.BLACK) }
+            clipToOutline = true
         }
-        root.addView(styles)
+        root.addView(preview)
 
-        val dimLabel = text("Darken: ${prefs.dimPercent}%", 15f, top = 12)
-        root.addView(dimLabel)
-        root.addView(SeekBar(this).apply {
-            max = 80
-            progress = prefs.dimPercent
-            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(s: SeekBar?, p: Int, fromUser: Boolean) { dimLabel.text = "Darken: $p%" }
-                override fun onStartTrackingTouch(s: SeekBar?) {}
-                override fun onStopTrackingTouch(s: SeekBar?) {
-                    prefs.dimPercent = progress
-                    MediaArtListener.instance?.refresh(forceRedraw = true)
-                }
-            })
+        root.addView(subheader("Layout"))
+        root.addView(choice(listOf("Rounded cover", "Cover fills the screen"), prefs.layout) {
+            prefs.layout = it; lookChanged()
         })
 
+        root.addView(subheader("Background"))
+        root.addView(choice(listOf("Cover colour (Samsung)", "Blurred cover", "Black"), prefs.background) {
+            prefs.background = it; lookChanged()
+        })
+
+        root.addView(subheader("Cover"))
+        slider("Position from top", 5, 60, "%", { prefs.coverTopPercent }, { prefs.coverTopPercent = it }, root)
+        slider("Size", 40, 100, "%", { prefs.coverSizePercent }, { prefs.coverSizePercent = it }, root)
+        slider("Corner roundness", 0, 20, "", { prefs.cornerPercent }, { prefs.cornerPercent = it }, root)
+
+        root.addView(subheader("Text under the cover"))
+        toggle("Song title", { prefs.showTitle }, { prefs.showTitle = it }, root)
+        toggle("Artist", { prefs.showArtist }, { prefs.showArtist = it }, root)
+        toggle("Album", { prefs.showAlbum }, { prefs.showAlbum = it }, root)
+        slider("Text size", 60, 160, "%", { prefs.textScalePercent }, { prefs.textScalePercent = it }, root)
+
+        root.addView(subheader("Background brightness"))
+        slider("Darken", 0, 80, "%", { prefs.dimPercent }, { prefs.dimPercent = it }, root)
+
+        root.addView(Button(this).apply {
+            text = "Reset to Samsung look"
+            setOnClickListener { prefs.resetLook(); recreate(); MediaArtListener.instance?.refresh(forceRedraw = true) }
+        })
+        root.addView(text("Music controls: the wallpaper is a still image, so buttons drawn on it couldn't be " +
+            "tapped. Samsung's own player at the bottom of the lock screen keeps working as usual.", 13f, top = 8))
+
+        root.addView(header("Timing"))
         val delayLabel = text("Go back to normal ${prefs.restoreDelaySeconds} s after the music stops", 15f, top = 12)
         root.addView(delayLabel)
         root.addView(SeekBar(this).apply {
@@ -142,6 +171,77 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         updateUi()
+        updatePreview()
+    }
+
+    private fun lookChanged() {
+        updatePreview()
+        MediaArtListener.instance?.refresh(forceRedraw = true)
+    }
+
+    /** Draws the current look with the last song played (or a placeholder) at a third of screen size. */
+    private fun updatePreview() {
+        val metrics = resources.displayMetrics
+        val sw = minOf(metrics.widthPixels, metrics.heightPixels)
+        val sh = maxOf(metrics.widthPixels, metrics.heightPixels)
+        val w = sw / 3
+        val h = (w * (sh.toFloat() / sw) * 1.06f).toInt() // a bit taller: displayMetrics excludes the bars
+        val art = prefs.lastCoverFile.takeIf { it.exists() }?.let { BitmapFactory.decodeFile(it.path) }
+            ?: placeholderArt()
+        val bmp = ArtRenderer.render(art, w, h, prefs.look(prefs.lastTitle, prefs.lastArtist, prefs.lastAlbum))
+        // Faint clock where Samsung draws it, so you can see what the cover has to avoid.
+        Canvas(bmp).drawText("12:45", w / 2f, h * 0.235f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(150, 255, 255, 255)
+            textSize = w * 0.22f
+            typeface = Typeface.create(Typeface.SERIF, Typeface.BOLD)
+            textAlign = Paint.Align.CENTER
+        })
+        preview.setImageBitmap(bmp)
+    }
+
+    private fun placeholderArt(): Bitmap {
+        val b = Bitmap.createBitmap(300, 300, Bitmap.Config.ARGB_8888)
+        Canvas(b).drawRect(0f, 0f, 300f, 300f, Paint().apply {
+            shader = LinearGradient(0f, 0f, 300f, 300f, Color.rgb(200, 40, 60), Color.rgb(60, 20, 120), Shader.TileMode.CLAMP)
+        })
+        return b
+    }
+
+    private fun choice(options: List<String>, selected: Int, onPick: (Int) -> Unit): RadioGroup {
+        val group = RadioGroup(this)
+        options.forEachIndexed { i, label ->
+            group.addView(RadioButton(this).apply { id = 2000 + i; text = label })
+        }
+        group.check(2000 + selected)
+        group.setOnCheckedChangeListener { _, id -> onPick(id - 2000) }
+        return group
+    }
+
+    private fun slider(label: String, min: Int, max: Int, suffix: String, get: () -> Int, set: (Int) -> Unit, parent: LinearLayout) {
+        val tv = text("$label: ${get()}$suffix", 15f, top = 8)
+        parent.addView(tv)
+        parent.addView(SeekBar(this).apply {
+            this.min = min
+            this.max = max
+            progress = get()
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(s: SeekBar?, p: Int, fromUser: Boolean) {
+                    tv.text = "$label: $p$suffix"
+                    if (fromUser) { set(p); updatePreview() }
+                }
+                override fun onStartTrackingTouch(s: SeekBar?) {}
+                override fun onStopTrackingTouch(s: SeekBar?) { set(progress); lookChanged() }
+            })
+        })
+    }
+
+    private fun toggle(label: String, get: () -> Boolean, set: (Boolean) -> Unit, parent: LinearLayout) {
+        parent.addView(Switch(this).apply {
+            text = label
+            textSize = 15f
+            isChecked = get()
+            setOnCheckedChangeListener { _, on -> set(on); lookChanged() }
+        })
     }
 
     @Deprecated("Deprecated in Java")
@@ -180,6 +280,7 @@ class MainActivity : Activity() {
     }
 
     private fun header(s: String) = text(s, 18f, bold = true, top = 24)
+    private fun subheader(s: String) = text(s, 15f, bold = true, top = 14)
 
     private fun text(s: String, size: Float, bold: Boolean = false, top: Int = 0) = TextView(this).apply {
         text = s

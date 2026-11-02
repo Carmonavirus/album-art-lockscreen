@@ -22,11 +22,20 @@ To update, download and install the APK from the same link again. Your settings 
 
 ## Settings
 
-- **Look**: the cover centred over a blurred copy of itself (closest to the iPhone look),
-  or the cover cropped to fill the whole screen.
-- **Darken**: dims the image so the clock and notifications stay readable.
-- **Go back to normal after**: how long after the music stops before your normal lock
-  screen comes back, so short pauses don't make it flash.
+The app has a customization screen with a live preview (using the last song that played):
+
+- **Layout**: a rounded cover you can move and resize, or the cover cropped to fill the screen.
+- **Background**: the cover's colour on a dark gradient (like Samsung's expanded player),
+  a blurred copy of the cover, or black.
+- **Cover**: position from the top, size and corner roundness.
+- **Text under the cover**: song title, artist and album, each on or off, plus text size.
+- **Darken**: dims the background so the clock stays readable.
+- **Reset to Samsung look** puts everything back to the defaults, which match the expanded
+  lock screen player on a Galaxy S23.
+- **Timing**: how long after the music stops before your normal lock screen comes back.
+
+Music controls aren't drawn on the wallpaper because a wallpaper is a still image and
+can't be tapped. Samsung's own lock screen player keeps working on top of it.
 
 ## Good to know
 
