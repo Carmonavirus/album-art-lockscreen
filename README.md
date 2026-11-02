@@ -43,6 +43,18 @@ The app has a customization screen with a live preview (using the last song that
 Music controls aren't drawn on the wallpaper because a wallpaper is a still image and
 can't be tapped. Samsung's own lock screen player keeps working on top of it.
 
+## Cover quality
+
+Music apps usually share only a small cover (often 300-500 px), which looks soft on a
+1080 px wide screen. The app tries, in order:
+
+1. A full-size version of the music app's own cover link, when it provides one.
+2. An HD cover from Apple's public iTunes catalogue, used only when title and artist match
+   exactly. Only the song title and artist are sent. You can turn this off in the app.
+3. Whatever cover the music app gave.
+
+The "Last activity" line in the app shows the resolution and source of the current cover.
+
 ## Good to know
 
 - Android doesn't let apps read your current lock screen image. If you don't pick one in
