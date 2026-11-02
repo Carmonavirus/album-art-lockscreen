@@ -38,6 +38,8 @@ class MediaArtListener : NotificationListenerService() {
     private var restorePending = false
     /** Track key we are fetching/applying right now, so we don't do the same work twice. */
     private var inFlightKey: String? = null
+    /** Set when the look changed, so the current song is drawn again even though it didn't change. */
+    private var redrawNext = false
 
     private val sessionsListener = MediaSessionManager.OnActiveSessionsChangedListener { controllers ->
         watch(controllers ?: emptyList())
@@ -52,6 +54,8 @@ class MediaArtListener : NotificationListenerService() {
         super.onListenerConnected()
         instance = this
         prefs = Prefs(this)
+        // Redraw the playing song on (re)connect, e.g. after an app update changed the look.
+        redrawNext = true
         val msm = getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
         sessionManager = msm
         val me = ComponentName(this, MediaArtListener::class.java)
@@ -100,7 +104,7 @@ class MediaArtListener : NotificationListenerService() {
     /** Called from the settings screen after a change. */
     fun refresh(forceRedraw: Boolean) {
         main.post {
-            if (forceRedraw) prefs.currentTrackKey = null
+            if (forceRedraw) redrawNext = true
             evaluate()
         }
     }
@@ -132,7 +136,7 @@ class MediaArtListener : NotificationListenerService() {
 
         val md = playing.metadata ?: return
         val key = trackKey(playing.packageName, md)
-        if (key == prefs.currentTrackKey || key == inFlightKey) return
+        if ((key == prefs.currentTrackKey && !redrawNext) || key == inFlightKey) return
 
         val bitmap = md.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
             ?: md.getBitmap(MediaMetadata.METADATA_KEY_ART)
@@ -144,9 +148,12 @@ class MediaArtListener : NotificationListenerService() {
         if (bitmap == null && uri.isNullOrBlank()) return
 
         val title = md.getString(MediaMetadata.METADATA_KEY_TITLE) ?: "Unknown track"
-        val style = prefs.style
-        val dim = prefs.dimPercent
+        val artist = md.getString(MediaMetadata.METADATA_KEY_ARTIST)
+            ?: md.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST) ?: ""
+        val album = md.getString(MediaMetadata.METADATA_KEY_ALBUM) ?: ""
+        val look = prefs.look(title, artist, album)
         inFlightKey = key
+        redrawNext = false
         worker.execute {
             val art = bitmap ?: uri?.let { loadUri(it) }
             if (art == null) {
@@ -154,7 +161,8 @@ class MediaArtListener : NotificationListenerService() {
                 status("Couldn't get the cover for \"$title\".")
                 return@execute
             }
-            val ok = applyCover(art, style, dim)
+            val ok = applyCover(art, look)
+            saveForPreview(art, title, artist, album)
             main.post {
                 if (inFlightKey == key) inFlightKey = null
                 if (ok) prefs.currentTrackKey = key
@@ -192,15 +200,25 @@ class MediaArtListener : NotificationListenerService() {
         return w to h
     }
 
-    private fun applyCover(art: Bitmap, style: Int, dim: Int): Boolean = try {
+    private fun applyCover(art: Bitmap, look: ArtRenderer.Look): Boolean = try {
         val (w, h) = screenSize()
-        val image = ArtRenderer.render(art, w, h, style, dim)
+        val image = ArtRenderer.render(art, w, h, look)
         WallpaperManager.getInstance(this).setBitmap(image, null, true, WallpaperManager.FLAG_LOCK)
         true
     } catch (e: Exception) {
         Log.e(TAG, "Setting the lock screen failed", e)
         status("Setting the lock screen failed: ${e.message}")
         false
+    }
+
+    /** Keeps the last cover so the settings screen can preview the look with a real song. */
+    private fun saveForPreview(art: Bitmap, title: String, artist: String, album: String) {
+        runCatching {
+            prefs.lastCoverFile.outputStream().use { art.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            prefs.lastTitle = title
+            prefs.lastArtist = artist
+            prefs.lastAlbum = album
+        }
     }
 
     private fun restoreNormalWallpaper() {
