@@ -1,0 +1,15 @@
+name: probe
+on:
+  push:
+    branches: [claude/tmp-api-probe]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for q in "SoFaygo Try and Fail" "SoFaygo Try & Fail" "Try and Fail" ; do
+            echo "=== deezer: $q"
+            curl -s -G "https://api.deezer.com/search" --data-urlencode "q=$q" --data-urlencode "limit=10" | jq -c '{total, data: [.data[] | {title, title_short, title_version, artist: .artist.name, album: .album.title}]}'
+            echo "=== itunes: $q"
+            curl -s -G "https://itunes.apple.com/search" --data-urlencode "term=$q" --data-urlencode "entity=song" --data-urlencode "limit=10" | jq -c '{resultCount, results: [.results[] | {trackName, artistName, collectionName}]}'
+          done
