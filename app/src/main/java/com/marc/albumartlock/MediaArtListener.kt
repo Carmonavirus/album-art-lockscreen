@@ -118,13 +118,20 @@ class MediaArtListener : NotificationListenerService() {
         if (!::prefs.isInitialized) return
         val playing = callbacks.keys.firstOrNull { isPlaying(it) }
 
-        if (!prefs.enabled || playing == null) {
+        if (!prefs.enabled) {
+            // Switched off (app or quick settings tile): put the normal lock screen back now.
+            main.removeCallbacks(restoreRunnable)
+            restorePending = false
+            restoreNormalWallpaper()
+            return
+        }
+
+        if (playing == null) {
             // Nothing playing: put the normal lock screen back after a grace period,
             // so a short pause or skip doesn't make the wallpaper flash.
             if (prefs.currentTrackKey != null && !restorePending) {
                 restorePending = true
-                val delay = if (prefs.enabled) prefs.restoreDelaySeconds * 1000L else 0L
-                main.postDelayed(restoreRunnable, delay)
+                main.postDelayed(restoreRunnable, prefs.restoreDelaySeconds * 1000L)
             }
             return
         }

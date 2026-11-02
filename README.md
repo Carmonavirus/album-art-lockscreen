@@ -20,6 +20,12 @@ Made for a Samsung Galaxy S23, but should work on any phone running Android 10 o
 
 To update, download and install the APK from the same link again. Your settings are kept.
 
+## Quick on/off
+
+Add the **Album art** tile to your quick settings panel: tap **Add on/off tile to quick
+settings** in the app, or swipe down twice, tap the pencil (edit) button and drag the tile in.
+It works from the lock screen too. Turning it off puts your normal lock screen back right away.
+
 ## Settings
 
 The app has a customization screen with a live preview (using the last song that played):
