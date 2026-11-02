@@ -38,6 +38,7 @@ class MainActivity : Activity() {
     private lateinit var lastStatus: TextView
     private lateinit var defaultStatus: TextView
     private lateinit var preview: ImageView
+    private lateinit var enabledSwitch: Switch
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -65,15 +66,31 @@ class MainActivity : Activity() {
 
         // 2. On/off
         root.addView(header("2. Turn it on"))
-        root.addView(Switch(this).apply {
+        root.addView(text("Tip: add the \"Album art\" tile to your quick settings panel (swipe down, " +
+            "tap the pencil/edit button) to switch this on and off quickly, even from the lock screen.", 13f))
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            root.addView(Button(this).apply {
+                text = "Add on/off tile to quick settings"
+                setOnClickListener {
+                    getSystemService(android.app.StatusBarManager::class.java)?.requestAddTileService(
+                        ComponentName(this@MainActivity, ToggleTileService::class.java),
+                        "Album art",
+                        android.graphics.drawable.Icon.createWithResource(this@MainActivity, R.drawable.ic_tile),
+                        mainExecutor,
+                    ) { }
+                }
+            })
+        }
+        enabledSwitch = Switch(this).apply {
             text = "Show album art on the lock screen"
             textSize = 16f
             isChecked = prefs.enabled
             setOnCheckedChangeListener { _, on ->
                 prefs.enabled = on
-                MediaArtListener.instance?.refresh(forceRedraw = false)
+                MediaArtListener.instance?.refresh(forceRedraw = on)
             }
-        })
+        }
+        root.addView(enabledSwitch)
 
         // 3. Look
         root.addView(header("3. Customize the look"))
@@ -271,6 +288,8 @@ class MainActivity : Activity() {
         }
         defaultStatus.text = if (prefs.defaultWallpaperFile.exists()) "✓ Image saved" else "No image picked"
         lastStatus.text = prefs.lastStatus
+        // The tile may have changed this while the app was in the background.
+        if (enabledSwitch.isChecked != prefs.enabled) enabledSwitch.isChecked = prefs.enabled
     }
 
     private fun hasAccess(): Boolean {
