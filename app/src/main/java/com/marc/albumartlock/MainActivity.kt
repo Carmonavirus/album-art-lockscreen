@@ -152,7 +152,7 @@ class MainActivity : Activity() {
         toggle("Find HD covers online", { prefs.hdLookup }, { prefs.hdLookup = it }, root)
         root.addView(text("Music apps often share only a small cover, which looks blurry full screen. " +
             "With this on, the app looks the song up in Apple's iTunes catalogue (song title and artist " +
-            "only) and uses its high-resolution cover when it finds an exact match.", 13f))
+            "only) and uses its high-resolution cover first. If there is no exact match, it uses the music app's own cover.", 13f))
 
         root.addView(header("Timing"))
         val delayLabel = text("Go back to normal ${prefs.restoreDelaySeconds} s after the music stops", 15f, top = 12)

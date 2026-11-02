@@ -187,22 +187,22 @@ class MediaArtListener : NotificationListenerService() {
 
     /**
      * Music apps usually hand over a small cover (often 300-500 px), which looks soft on a
-     * 1080 px wide screen. Try, in order: a full-size version of the app's own cover URL, an HD
-     * copy from the iTunes catalogue (if allowed), then whatever the app gave us. Returns the
-     * biggest one found, with a short description of where it came from.
+     * 1080 px wide screen. So the HD cover from the iTunes catalogue comes first (if allowed and
+     * the song matches exactly). Only when there is none do we fall back to the music app's own
+     * cover: a full-size version of its cover URL if possible, otherwise the bitmap it shared.
+     * Returns the cover with a short description of where it came from.
      */
     private fun bestCover(bitmap: Bitmap?, uri: String?, title: String, artist: String, album: String): Pair<Bitmap?, String> {
+        if (prefs.hdLookup) {
+            itunesCover(title, artist, album)?.let { return it to "HD from iTunes" }
+        }
         val candidates = mutableListOf<Pair<Bitmap, String>>()
-        bitmap?.let { candidates += it to "from the music app" }
+        bitmap?.let { candidates += it to "from the music app (no HD match)" }
         if (!uri.isNullOrBlank()) {
             val big = upscaleUrl(uri)
-            val loaded = (if (big != uri) loadUri(big) else null)?.let { it to "full size from the music app" }
-                ?: loadUri(uri)?.let { it to "from the music app" }
+            val loaded = (if (big != uri) loadUri(big) else null)?.let { it to "full size from the music app (no HD match)" }
+                ?: loadUri(uri)?.let { it to "from the music app (no HD match)" }
             loaded?.let { candidates += it }
-        }
-        val bestSoFar = candidates.maxOfOrNull { minOf(it.first.width, it.first.height) } ?: 0
-        if (bestSoFar < HD_SIZE && prefs.hdLookup) {
-            itunesCover(title, artist, album)?.let { candidates += it to "HD from iTunes" }
         }
         val best = candidates.maxByOrNull { minOf(it.first.width, it.first.height) }
         return (best?.first) to (best?.second ?: "")
