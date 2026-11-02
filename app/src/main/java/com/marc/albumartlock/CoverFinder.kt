@@ -13,7 +13,8 @@ import java.net.URLEncoder
  * Finds the best cover for a song and writes down every step, so the app can show exactly
  * which sources were tried and why each one did or didn't work.
  *
- * Order: HD from iTunes, then HD from Deezer (both need an exact title + artist match), then the
+ * Order: HD from iTunes, then HD from Deezer (each needs an exact title + artist match, unless the
+ * search returned exactly one result, which is then used as is), then the
  * music app's own cover (a full-size version of its link if it gives one, else the image it shared).
  */
 class CoverFinder(private val context: Context, private val hdLookup: Boolean) {
@@ -92,6 +93,11 @@ class CoverFinder(private val context: Context, private val hdLookup: Boolean) {
             if (!matches(song, r.optString("artistName"), r.optString("trackName"))) continue
             if (pick == null || sameAlbum(song, r.optString("collectionName"))) pick = r
         }
+        if (pick == null && results.length() == 1) {
+            pick = results.getJSONObject(0)
+            log += "  only one result, using it even though the " +
+                mismatch(song, pick.optString("artistName"), pick.optString("trackName"))
+        }
         if (pick == null) {
             logNoMatch(song, (0 until results.length()).map { results.getJSONObject(it) }
                 .map { it.optString("artistName") to it.optString("trackName") })
@@ -116,6 +122,11 @@ class CoverFinder(private val context: Context, private val hdLookup: Boolean) {
             if (!matches(song, artist, r.optString("title"))) continue
             val album = r.optJSONObject("album")?.optString("title") ?: ""
             if (pick == null || sameAlbum(song, album)) pick = r
+        }
+        if (pick == null && results.length() == 1) {
+            pick = results.getJSONObject(0)
+            log += "  only one result, using it even though the " +
+                mismatch(song, pick.optJSONObject("artist")?.optString("name") ?: "", pick.optString("title"))
         }
         if (pick == null) {
             logNoMatch(song, (0 until results.length()).map { results.getJSONObject(it) }

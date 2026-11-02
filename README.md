@@ -54,8 +54,8 @@ Music apps usually share only a small cover (often 300-500 px), which looks soft
 3. A full-size version of the music app's own cover link, when it provides one.
 4. Whatever cover the music app shared.
 
-Steps 1 and 2 are used only when the title and artist match exactly, so you never get the wrong
-cover. Only the song title and artist are sent. You can turn both off in the app.
+For steps 1 and 2, a search that returns exactly one result uses that result. With several
+results, one must match the title and artist exactly, otherwise the next source is tried. Only the song title and artist are sent. You can turn both off in the app.
 
 **Checking what happened:** the app's *Last cover search* section shows every step for the
 latest song: what the music app shared, how many results each catalogue returned, the closest
